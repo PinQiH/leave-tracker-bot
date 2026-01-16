@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf');
+const http = require('http');
 const config = require('./config/config');
 const botController = require('./controllers/botController');
 const schedulerService = require('./services/schedulerService');
@@ -47,3 +48,14 @@ bot.launch().catch((err) => {
 // 優雅停機
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// 建立 HTTP Server 以符合 Render 的 Port 監聽要求
+const port = process.env.PORT || 8080;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is alive');
+});
+
+server.listen(port, () => {
+    console.log(`Web Server running on port ${port}`);
+});
