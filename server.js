@@ -35,10 +35,12 @@ bot.on('text', botController.handleMessage);
 
 // 啟動 Bot
 console.log('🚀 Telegram Bot 啟動中...');
-bot.launch().then(() => {
-    console.log('✅ Bot 已連線並開始監聽訊息。');
-    schedulerService.init(bot);
-}).catch((err) => {
+
+// User request: 立即顯示成功訊息並啟動排程，不等待 launch Promise
+console.log('✅ Bot 已連線並開始監聽訊息。');
+schedulerService.init(bot);
+
+bot.launch().catch((err) => {
     console.error('❌ Bot 啟動失敗:', err);
 });
 
