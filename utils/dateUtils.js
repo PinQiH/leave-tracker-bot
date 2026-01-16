@@ -1,0 +1,30 @@
+const dayjs = require('dayjs');
+
+/**
+ * 計算兩個時間的小時差
+ * @param {string} start - 開始時間 (ISO string or YYYY-MM-DD HH:mm)
+ * @param {string} end - 結束時間
+ * @returns {number} - 小時數 (保留一位小數)
+ */
+const calculateHours = (start, end) => {
+  const startDate = dayjs(start);
+  const endDate = dayjs(end);
+  const diffMs = endDate.diff(startDate);
+  // 轉換為小時，保留1位小數
+  const hours = diffMs / (1000 * 60 * 60);
+  return Math.round(hours * 10) / 10;
+};
+
+/**
+ * 格式化日期為 ISO 8601 (Notion 需求)
+ * @param {string} dateStr 
+ * @returns {string}
+ */
+const toIsoString = (dateStr) => {
+  return dayjs(dateStr).toISOString();
+};
+
+module.exports = {
+  calculateHours,
+  toIsoString,
+};
