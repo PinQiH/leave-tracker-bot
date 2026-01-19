@@ -12,34 +12,34 @@ const botController = {
 
     // 嘗試解析是否為請假/加班訊息
     const result = await leaveService.processLeaveMessage(text);
-    
+
     if (result) {
       // 1. 回覆使用者 (無論成功或失敗)
       await ctx.reply(result.message);
 
       // 2. 若成功且有設定群組 ID，則推播通知
       if (result.success && config.telegram.groupId) {
-          try {
-              const { name, type, hours, complianceWarning } = result.data;
-              let notifyText = `📢 請假通知\n\n 姓名：${name}\n 假別：${type}\n 時數：${hours} 小時`;
-              
-              if (complianceWarning) {
-                  notifyText += `\n\n${complianceWarning}`;
-              }
+        try {
+          const { name, type, hours, complianceWarning } = result.data;
+          let notifyText = `📢 通知\n\n 申請人：${name}\n 類型：${type}\n 時數：${hours} 小時`;
 
-              await ctx.telegram.sendMessage(config.telegram.groupId, notifyText);
-          } catch (error) {
-              console.error('Failed to send group notification:', error);
+          if (complianceWarning) {
+            notifyText += `\n\n${complianceWarning}`;
           }
+
+          await ctx.telegram.sendMessage(config.telegram.groupId, notifyText);
+        } catch (error) {
+          console.error('Failed to send group notification:', error);
+        }
       }
     }
   },
-  
+
   /**
    * 處理 /help 指令
    */
   async handleHelpCommand(ctx) {
-      const helpText = `
+    const helpText = `
 🤖 **請假/加班機器人指令說明**
 
 **1. 新增記錄**：
@@ -68,7 +68,7 @@ const botController = {
 - 下午：13:30 ~ 17:30
 *(時段不符系統將顯示警示)*
       `;
-      await ctx.replyWithMarkdown(helpText);
+    await ctx.replyWithMarkdown(helpText);
   },
 
   /**
@@ -76,36 +76,36 @@ const botController = {
    * 用於取得當前聊天室 ID (個人或群組)
    */
   async handleGetIdCommand(ctx) {
-      const chatId = ctx.chat.id;
-      const title = ctx.chat.title || ctx.chat.first_name || '此聊天室';
-      await ctx.reply(`🆔 **${title}** 的 ID 是：\n\`${chatId}\``, { parse_mode: 'Markdown' });
+    const chatId = ctx.chat.id;
+    const title = ctx.chat.title || ctx.chat.first_name || '此聊天室';
+    await ctx.reply(`🆔 **${title}** 的 ID 是：\n\`${chatId}\``, { parse_mode: 'Markdown' });
   },
 
   /**
    * 測試排程通知 (手動觸發)
    */
   async handleTestCronCommand(ctx) {
-      if (!config.telegram.groupId) {
-          return ctx.reply('❌ 尚未設定群組 ID (TELEGRAM_GROUP_ID)，無法測試。');
-      }
-      
-      await ctx.reply('🚀 正在發送測試通知到群組...');
-      
-      try {
-        // 模擬每月 15 號
-        await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 請於21號以前完成前一個月Mynote工作記錄及納管專案工項的進度回報，以利後續作業，感恩大家。');
+    if (!config.telegram.groupId) {
+      return ctx.reply('❌ 尚未設定群組 ID (TELEGRAM_GROUP_ID)，無法測試。');
+    }
 
-        // 模擬每月 20 號
-        await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！今天是 20 號，記得寫 Mynote 喔！');
-        
-        // 模擬週一
-        await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！又是新的一週，記得寫 Mynote 喔！');
-        
-        await ctx.reply('✅ 測試通知已發送！');
-      } catch (error) {
-        console.error('Test Cron Error:', error);
-        await ctx.reply(`❌ 發送失敗: ${error.message}`);
-      }
+    await ctx.reply('🚀 正在發送測試通知到群組...');
+
+    try {
+      // 模擬每月 15 號
+      await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 請於21號以前完成前一個月Mynote工作記錄及納管專案工項的進度回報，以利後續作業，感恩大家。');
+
+      // 模擬每月 20 號
+      await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！今天是 20 號，記得寫 Mynote 喔！');
+
+      // 模擬週一
+      await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！又是新的一週，記得寫 Mynote 喔！');
+
+      await ctx.reply('✅ 測試通知已發送！');
+    } catch (error) {
+      console.error('Test Cron Error:', error);
+      await ctx.reply(`❌ 發送失敗: ${error.message}`);
+    }
   },
 
   /**
@@ -113,7 +113,7 @@ const botController = {
    * 提供手機使用者快速複製格式
    */
   async handleFormatCommand(ctx) {
-      const formatText = `
+    const formatText = `
 \`\`\`
 姓名: 王小明
 類型: 加班
@@ -122,7 +122,7 @@ const botController = {
 \`\`\`
 請複製上方文字並修改內容後傳送。
       `;
-      await ctx.reply(formatText, { parse_mode: 'Markdown' });
+    await ctx.reply(formatText, { parse_mode: 'Markdown' });
   },
 };
 
