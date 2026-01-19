@@ -1,4 +1,12 @@
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// 設定預設時區為台北
+dayjs.tz.setDefault("Asia/Taipei");
 
 /**
  * 計算兩個時間的小時差
@@ -7,8 +15,9 @@ const dayjs = require('dayjs');
  * @returns {number} - 小時數 (保留一位小數)
  */
 const calculateHours = (start, end) => {
-  const startDate = dayjs(start);
-  const endDate = dayjs(end);
+  // 強制視為台北時間解析
+  const startDate = dayjs.tz(start, "Asia/Taipei");
+  const endDate = dayjs.tz(end, "Asia/Taipei");
   const diffMs = endDate.diff(startDate);
   // 轉換為小時，保留1位小數
   const hours = diffMs / (1000 * 60 * 60);
@@ -21,7 +30,8 @@ const calculateHours = (start, end) => {
  * @returns {string}
  */
 const toIsoString = (dateStr) => {
-  return dayjs(dateStr).toISOString();
+  // 強制視為台北時間解析，再轉為 ISO (會自動轉為 UTC)
+  return dayjs.tz(dateStr, "Asia/Taipei").toISOString();
 };
 
 module.exports = {

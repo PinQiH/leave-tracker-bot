@@ -1,5 +1,9 @@
 const { Telegraf } = require('telegraf');
 const http = require('http');
+
+// 強制設定時區 (必須在最前面)
+process.env.TZ = "Asia/Taipei";
+
 const config = require('./config/config');
 const botController = require('./controllers/botController');
 const schedulerService = require('./services/schedulerService');
@@ -28,6 +32,7 @@ bot.catch((err, ctx) => {
 // 指令註冊
 bot.command('start', botController.handleHelpCommand);
 bot.command('help', botController.handleHelpCommand);
+bot.command('format', botController.handleFormatCommand);
 bot.command('getid', botController.handleGetIdCommand);
 bot.command('testcron', botController.handleTestCronCommand);
 

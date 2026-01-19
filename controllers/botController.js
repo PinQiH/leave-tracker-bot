@@ -106,7 +106,24 @@ const botController = {
         console.error('Test Cron Error:', error);
         await ctx.reply(`❌ 發送失敗: ${error.message}`);
       }
-  }
+  },
+
+  /**
+   * 處理 /format 指令
+   * 提供手機使用者快速複製格式
+   */
+  async handleFormatCommand(ctx) {
+      const formatText = `
+\`\`\`
+姓名: 王小明
+類型: 加班
+開始時間: 2026-01-20 18:00
+結束時間: 2026-01-20 20:00
+\`\`\`
+請複製上方文字並修改內容後傳送。
+      `;
+      await ctx.reply(formatText, { parse_mode: 'Markdown' });
+  },
 };
 
 module.exports = botController;
