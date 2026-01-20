@@ -1,5 +1,6 @@
 const dateUtils = require('../utils/dateUtils');
 const notionRepo = require('../repository/notionRepo');
+const userMappingManager = require('../utils/userMappingManager');
 const dayjs = require('dayjs');
 
 const leaveService = {
@@ -11,9 +12,10 @@ const leaveService = {
    * 開始時間: 2026-01-20 09:00
    * 結束時間: 2026-01-20 18:00
    * @param {string} text - 訊息文字
-   * @returns {Promise<string>} - 回覆訊息
+   * @param {string|number} userId - Telegram User ID
+   * @returns {Promise<Object>} - 回覆訊息物件
    */
-  async processLeaveMessage(text) {
+  async processLeaveMessage(text, userId) {
     try {
       // 1. 解析訊息
       const lines = text.split('\n');
@@ -123,6 +125,29 @@ const leaveService = {
           }
       }
 
+      // 3.5 [NEW] 檢查人員對應
+      // const email = userMappingManager.getEmail(userId);
+      // 改用 authService 查詢 Notion User ID
+      const authService = require('./authService'); // Lazy load or move to top
+      const user = await authService.checkUserByTelegramId(userId);
+
+      if (!user || !user.notionUserId) {
+          // 若找不到或沒綁定 Notion User ID (同步腳本沒跑?), 視為未綁定
+             return {
+              success: false,
+              status: 'MISSING_MAPPING',
+              message: '尚未完成身分綁定或同步，無法標記人員。'
+          };
+      }
+
+      // 取得 Notion Person ID
+      const personId = user.notionUserId;
+      let personWarning = '';
+      if (!personId) {
+           // 理論上 checkUserByTelegramId 回傳 user 就應該有，除非 Notion_ID 欄位空的
+           personWarning = `\n⚠️ 注意：您的資料未同步 Notion ID，無法自動標記人員。`;
+      }
+
       // 4. 呼叫 Repo 寫入 Notion
       await notionRepo.createLeaveRecord({
         name: data['姓名'],
@@ -130,7 +155,8 @@ const leaveService = {
         start: startForNotion,
         end: endForNotion,
         hours: hours,
-        remark: text // 原始訊息當作備註
+        remark: text, // 原始訊息當作備註
+        personId: personId
       });
 
       // 4. 加班/補休 則計算剩餘時數
@@ -159,7 +185,7 @@ const leaveService = {
           }
       }
 
-      const successMessage = `✅ 登記成功！\n姓名: ${data['姓名']}\n類型: ${data['類型']}\n時數: ${hours} 小時${balanceMsg}${complianceMsg}`;
+      const successMessage = `✅ 登記成功！\n姓名: ${data['姓名']}\n類型: ${data['類型']}\n時數: ${hours} 小時${balanceMsg}${complianceMsg}${personWarning}`;
 
       return {
           success: true,

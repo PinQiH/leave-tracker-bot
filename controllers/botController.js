@@ -1,6 +1,7 @@
 const leaveService = require('../services/leaveService');
 const excelService = require('../services/excelService');
 const notionRepo = require('../repository/notionRepo');
+const userMappingManager = require('../utils/userMappingManager');
 const config = require('../config/config');
 const axios = require('axios');
 
@@ -18,7 +19,61 @@ const botController = {
 
     const userId = ctx.from.id;
 
-    // 0. 檢查是否在等待輸入資料狀態
+    // 0.1 處理等待註冊 Email
+    if (userStates[userId] && userStates[userId].step === 'WAIT_FOR_EMAIL') {
+        const email = text.trim();
+        // 簡單驗證 Email
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+             return ctx.reply('⚠️ Email 格式不正確，請重新輸入 (例如: user@example.com)');
+        }
+
+        try {
+             // 驗證 Notion 是否有此人
+             const personId = await notionRepo.findUserByEmail(email);
+             if (!personId) {
+                 return ctx.reply(`⚠️ 在 Notion 找不到 ${email}，請確認 Email 是否正確 (需與 Notion 帳號一致)？\n請重新輸入：`);
+             }
+
+             // 綁定成功
+             userMappingManager.setEmail(userId, email);
+             await ctx.reply(`✅ 綁定成功！\n正在自動繼續處理您的請假申請...`);
+
+             // 取出暫存的請假文字
+             const originalText = userStates[userId].pendingText;
+             
+             // 清除狀態
+             delete userStates[userId];
+
+             // 重新執行請假流程 (這會掉到下方的 handleLeaveFlow，或是我們直接在這裡呼叫)
+             // 為了避免代碼重複，這裡我們將 `originalText` 設為 `text` 並讓程式繼續往下走？
+             // 但因為 `text` 是 const，所以我們這裡直接呼叫 service 比較保險
+             
+             // Reuse Logic: 直接呼叫 service (複製下方的 logic)
+             const result = await leaveService.processLeaveMessage(originalText, userId);
+             
+             // 處理結果 (複製自下方)
+             if (result) {
+                await ctx.reply(result.message);
+                if (result.success && config.telegram.groupId) {
+                    try {
+                        const { name, type, hours, startTime, endTime, complianceWarning } = result.data;
+                        let notifyText = `📢 出勤異動通知\n\n 申請人：${name}\n 類型：${type}\n 開始：${startTime}\n 結束：${endTime}`;
+                        if (complianceWarning) notifyText += `\n\n${complianceWarning}`;
+                        await ctx.telegram.sendMessage(config.telegram.groupId, notifyText);
+                    } catch (error) {
+                        console.error('Failed to send group notification:', error);
+                    }
+                }
+             }
+             return;
+
+        } catch (err) {
+            console.error('Binding Error:', err);
+            return ctx.reply(`❌ 綁定過程發生錯誤: ${err.message}`);
+        }
+    }
+
+    // 0. 檢查是否在等待輸入資料狀態 (Excel)
     if (userStates[userId] && userStates[userId].step === 'WAIT_FOR_INFO') {
         const input = text.trim();
         // 格式: 姓名, Email (或是用中文逗號)
@@ -92,7 +147,17 @@ const botController = {
     }
 
     // 嘗試解析是否為請假/加班訊息
-    const result = await leaveService.processLeaveMessage(text);
+    const result = await leaveService.processLeaveMessage(text, userId);
+
+    // [NEW] 處理未綁定狀態
+    if (result && result.status === 'MISSING_MAPPING') {
+         userStates[userId] = {
+             step: 'WAIT_FOR_EMAIL',
+             pendingText: text
+         };
+         await ctx.reply(result.message + '\n\n💡 這是您第一次使用，請輸入您的 Notion Email 以完成綁定 (只需設定一次)：');
+         return;
+    }
 
      if (result) {
       // 1. 回覆使用者 (無論成功或失敗)
@@ -132,6 +197,12 @@ const botController = {
           fileName.endsWith('.xls')
       ) {
           try {
+              // 檢查使用者權限 (理論上 middleware 已攔截，但再確認一次 session)
+              const user = ctx.session?.user;
+              if (!user || !user.notionUserId) {
+                   return ctx.reply('⚠️ 無法識別您的身分，請先完成綁定流程。');
+              }
+
               const fileId = doc.file_id;
               const fileLink = await ctx.telegram.getFileLink(fileId);
               
@@ -154,13 +225,52 @@ const botController = {
                   return ctx.reply('⚠️ 檔案中沒有有效資料。');
               }
 
-              // 暫存狀態
-              userStates[ctx.from.id] = {
-                  step: 'WAIT_FOR_INFO',
-                  excelData: data
-              };
+              await ctx.reply(`📄 收到 ${data.length} 筆資料，正在為 ${user.name} 匯入中...`);
 
-              await ctx.reply(`📄 收到 ${data.length} 筆資料。\n請回覆您的 **姓名, Notion Email** 以進行登記。\n(例如: 王小明, ming@example.com)`);
+              // 執行匯入
+              let successCount = 0;
+              let duplicateCount = 0;
+              let errorCount = 0;
+
+              // 背景執行匯入
+              (async () => {
+                   for (const record of data) {
+                      // 使用 session 中的 user.notionUserId 以及 user.name (或 Excel 內的，但 user 要求只能匯入自己)
+                      // 強制使用 session user name 覆蓋 record 內的 name (若 excel 沒 name)
+                      // 或者我們假設 record 內有 name 但我們只用 user's personId tag.
+                      // 既然 "只能自己匯入自己的資料", 用 user.name 最保險
+                      const recordName = user.name; 
+                      const personId = user.notionUserId;
+
+                      const exists = await notionRepo.checkDuplicate(personId, record.type, record.startTime, record.endTime);
+                      
+                      if (exists) {
+                          duplicateCount++;
+                          continue;
+                      }
+
+                      try {
+                          await notionRepo.createLeaveRecord({
+                              name: recordName,
+                              type: record.type,
+                              start: record.startTime,
+                              end: record.endTime,
+                              hours: record.hours,
+                              remark: record.remark,
+                              personId: personId
+                          });
+                          successCount++;
+                      } catch (err) {
+                          console.error('Import Record Error:', err);
+                          errorCount++;
+                      }
+                  }
+
+                  let resultMsg = `✅ ${user.name} 匯入完成！\n成功: ${successCount} 筆\n重複忽略: ${duplicateCount} 筆`;
+                  if (errorCount > 0) resultMsg += `\n失敗: ${errorCount} 筆`;
+                  
+                  await ctx.reply(resultMsg);
+              })();
 
           } catch (error) {
               console.error('Handle Document Error:', error);
