@@ -163,6 +163,8 @@ const leaveService = {
               name: data['姓名'],
               type: data['類型'],
               hours: hours,
+              startTime: data['開始時間'],
+              endTime: data['結束時間'],
               balanceMessage: balanceMsg,
               complianceWarning: isCompliant ? '' : complianceMsg
           }

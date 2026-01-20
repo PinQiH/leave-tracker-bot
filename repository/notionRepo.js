@@ -182,6 +182,62 @@ const notionRepo = {
       throw error;
     }
   },
+  
+  /**
+   * 查詢指定日期的請假名單 (包含跨日)
+   * @param {string} dateStr - YYYY-MM-DD
+   */
+  async getLeavesByDate(dateStr) {
+      try {
+          const response = await notion.request({
+              path: `databases/${databaseId}/query`,
+              method: 'post',
+              body: {
+                  filter: {
+                      and: [
+                          {
+                              property: '開始時間',
+                              date: {
+                                  on_or_before: dateStr
+                              }
+                          },
+                          {
+                              property: '結束時間',
+                              date: {
+                                  on_or_after: dateStr
+                              }
+                          }
+                      ]
+                  },
+                  sorts: [
+                      {
+                          property: '開始時間',
+                          direction: 'ascending'
+                      }
+                  ]
+              }
+          });
+
+          return response.results.map(page => {
+              const start = page.properties['開始時間']?.date?.start;
+              const end = page.properties['結束時間']?.date?.end;
+              
+              // 格式化時間：若是全天 (YYYY-MM-DD)，保持原樣；若是含時間，取 HH:mm ~ HH:mm
+              // 但為了通知清楚，統一顯示原始字串或簡單處理
+              // 這裡回傳原始日期資料讓 Service/Controller 決定顯示方式
+              return {
+                  name: page.properties['姓名']?.title[0]?.text?.content || '未知',
+                  type: page.properties['類型']?.select?.name || '未知',
+                  start: start,
+                  end: end || start // 若無結束時間通常代表單日
+              };
+          });
+
+      } catch (error) {
+          console.error('Get Leaves By Date Error:', error);
+          throw error;
+      }
+  },
 };
 
 module.exports = notionRepo;

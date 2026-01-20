@@ -20,8 +20,8 @@ const botController = {
       // 2. 若成功且有設定群組 ID，則推播通知
       if (result.success && config.telegram.groupId) {
         try {
-          const { name, type, hours, complianceWarning } = result.data;
-          let notifyText = `📢 通知\n\n 申請人：${name}\n 類型：${type}\n 時數：${hours} 小時`;
+          const { name, type, hours, startTime, endTime, complianceWarning } = result.data;
+          let notifyText = `📢 出勤異動通知\n\n 申請人：${name}\n 類型：${type}\n 開始：${startTime}\n 結束：${endTime}`;
 
           if (complianceWarning) {
             notifyText += `\n\n${complianceWarning}`;
@@ -93,13 +93,17 @@ const botController = {
 
     try {
       // 模擬每月 15 號
-      await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 請於21號以前完成前一個月Mynote工作記錄及納管專案工項的進度回報，以利後續作業，感恩大家。');
+      await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 請於21號以前完成前一個月Mynote工作記錄及納管專案工項的進度回報，以利後續作業，感恩大家。\n\n例如：02/21 需完成 01/21 ~ 02/20 Mynote 工作紀錄。');
 
       // 模擬每月 20 號
       await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！今天是 20 號，記得寫 Mynote 喔！');
 
       // 模擬週一
       await ctx.telegram.sendMessage(config.telegram.groupId, '🔔 [測試] 大家早安！又是新的一週，記得寫 Mynote 喔！');
+
+      // 模擬每日請假通知
+      const today = new Date().toISOString().split('T')[0];
+      await ctx.telegram.sendMessage(config.telegram.groupId, `📅 **${today} 出勤異動名單**：\n1. 測試人員 測試假 (09:00~18:00)`, { parse_mode: 'Markdown' });
 
       await ctx.reply('✅ 測試通知已發送！');
     } catch (error) {
