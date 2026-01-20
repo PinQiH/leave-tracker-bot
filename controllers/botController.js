@@ -296,6 +296,14 @@ const botController = {
 \`\`\`
 *類型支援：補休、加班、特休、病假、事假...*
 
+**2. 匯入 Excel 檔案**：
+直接傳送 Excel 檔案，系統會自動解析並匯入。
+格式為：
+\`\`\`
+加班或補修/說明/起始時間/結束時間/時數(小時)/累計時數
+\`\`\`
+其中加班或補修的值為：加班或補休
+
 **⚠️ 注意事項**：
 
 **休假預告期**
@@ -319,6 +327,11 @@ const botController = {
 開始時間: 2026-01-20
 結束時間: 2026-01-20
 \`\`\`
+
+**常用指令**：
+- /help - 顯示說明
+- /format - 快速複製紀錄格式
+- /balance - 查詢剩餘補休
       `;
     await ctx.replyWithMarkdown(helpText);
   },
@@ -379,6 +392,35 @@ const botController = {
 請複製上方文字並修改內容後傳送。
       `;
     await ctx.reply(formatText, { parse_mode: 'Markdown' });
+  },
+
+  /**
+   * 處理 /balance 指令
+   * 查詢個人結餘
+   */
+  async handleMyBalanceCommand(ctx) {
+      try {
+          // 檢查登入狀態
+          const user = ctx.session?.user;
+          if (!user || !user.notionUserId) {
+              return ctx.reply('⚠️ 您尚未綁定或資料未同步，無法查詢結餘。\n請輸入您的員工編號以完成綁定。');
+          }
+
+          // 呼叫 Repo 查詢 (使用新的 Person ID 方法)
+          const balanceData = await notionRepo.getUserTimeBalanceByPersonId(user.notionUserId);
+          
+          const msg = `💰 **${user.name} 的休假結餘**\n\n` + 
+                      `總加班：${balanceData.overtime} 小時\n` + 
+                      `總補休：${balanceData.compensatory} 小時\n` + 
+                      `-------------------\n` + 
+                      `目前結餘：**${balanceData.balance}** 小時`;
+          
+          await ctx.reply(msg, { parse_mode: 'Markdown' });
+
+      } catch (error) {
+          console.error('Balance Command Error:', error);
+          await ctx.reply(`❌ 查詢失敗: ${error.message}`);
+      }
   },
 };
 

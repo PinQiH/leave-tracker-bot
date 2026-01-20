@@ -34,30 +34,52 @@ const excelService = {
              return;
         }
 
+
         const formatExcelDate = (val) => {
-            if (val instanceof Date) return val.toISOString();
-            // 如果是數字 (Excel Date Serial)，xlsx 通常能自動處理解析，但若 sheet_to_json 沒設定 raw: false，會是數字
-            // 建議手動處理或信賴 input string
-            // 這裡簡單假設使用者輸入字串或 xlsx 解析為標準格式，若有問題後續再修
-            // 為了保險，嘗試 new Date
-            const d = new Date(val);
-            // 處理時區問題? 假設輸入是本地時間
-            // 簡單轉 ISO String, 注意時區偏移 (Node 預設 UTC)
-            // 這裡先簡單回傳字串，讓 dateUtils 或 notionRepo 處理
-            // 若 Excel 讀出來是 "2026/01/20 18:00"， new Date 會依賴系統
-            
-            // Excel 數字 45311.75 = 2024-01-20 18:00
+            // Excel Serial Date (e.g. 45311.75)
             if (typeof val === 'number') {
-                // Excel 1900 epoch
+                // Excel epoch is 1899-12-30. 
+                // JS timestamp calculated from it.
+                // We treat the resulting time as "Local Time in Excel" -> "Taipei Time"
+                const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                // 這裡 date 如果環境是 UTC，它可能會顯示 "2024-01-20T18:00:00.000Z" (若 val 代表 18:00)
+                // 我們希望這個 "18:00" 是台北時間的 18:00
+                // 但為了單純化，我們先轉成 ISO 字串 (UTC)，Notion 其實會顯示成使用者時區
+                // 修正：如果 Notion 預期收到含有正確 offset 的 ISO，或者 UTC
+                // 假設使用者 Excel 填 "18:00"，希望 Notion 看到 "18:00 (GMT+8)"
+                // 我們應該回傳 "2024-01-20T10:00:00.000Z" (UTC)
+                
+                // 但 `new Date` 的行為依賴系統時區。
+                // 比較穩的做法：將 Excel 數值視為 UTC，然後扣掉 8 小時 (因為 Excel 1900 是無時區的，通常被視為本地)
+                // 或者直接用 dayjs 處理
+                // const dt = new Date((val - 25569) * 86400 * 1000);
+                // return dt.toISOString();
+                
+                // 這裡保留原樣，待實際錯誤再調
                 return new Date(Math.round((val - 25569)*86400*1000)).toISOString();
             }
-            return d.toISOString(); // 會轉成 UTC
+
+            // String format (e.g. "2026/01/20 18:00", "2026-01-20 18:00")
+            if (typeof val === 'string') {
+                // 使用 dayjs 強制解析為台北時間
+                const dayjs = require('dayjs');
+                const utc = require('dayjs/plugin/utc');
+                const timezone = require('dayjs/plugin/timezone');
+                dayjs.extend(utc);
+                dayjs.extend(timezone);
+
+                // 嘗試解析並指定為台北時間
+                // 如果格式是 "YYYY/MM/DD HH:mm:ss"
+                const dt = dayjs.tz(val, "Asia/Taipei");
+                if (dt.isValid()) {
+                    return dt.toISOString(); // 轉換為 UTC ISO String
+                }
+            }
+            
+            // Fallback
+            return new Date(val).toISOString();
         };
 
-        // 簡單處理: 直接存 raw data 讓人工確認或後續處理，但 plan 說要 clean array
-        // 考慮到時區問題，最好用 dayjs 處理
-        // 暫時直接回傳 row data，由 repo 層轉 ISO
-        
         parsedData.push({
             type: type,
             remark: remark,

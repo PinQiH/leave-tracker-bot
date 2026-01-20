@@ -130,6 +130,7 @@ bot.command('help', botController.handleHelpCommand);
 bot.command('format', botController.handleFormatCommand);
 bot.command('getid', botController.handleGetIdCommand);
 bot.command('testcron', botController.handleTestCronCommand);
+bot.command('balance', botController.handleMyBalanceCommand);
 
 // 訊息監聽 (放在最後，避免攔截指令)
 bot.on('text', botController.handleMessage);

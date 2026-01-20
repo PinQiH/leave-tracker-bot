@@ -194,6 +194,73 @@ const notionRepo = {
       throw error;
     }
   },
+
+  /**
+   * 計算特定 Person ID 的加班/補休結餘
+   * @param {string} personId
+   * @returns {Promise<{overtime: number, compensatory: number, balance: number}>}
+   */
+  async getUserTimeBalanceByPersonId(personId) {
+    try {
+      const response = await notion.request({
+        path: `databases/${databaseId}/query`,
+        method: 'post',
+        body: {
+             filter: {
+                and: [
+                    {
+                        property: '人員',
+                        people: {
+                            contains: personId
+                        }
+                    },
+                    {
+                    or: [
+                        {
+                        property: '類型',
+                        select: {
+                            equals: '加班',
+                        },
+                        },
+                        {
+                        property: '類型',
+                        select: {
+                            equals: '補休',
+                        },
+                        },
+                    ],
+                    },
+                ],
+            }
+        }
+      });
+
+
+      let overtime = 0;
+      let compensatory = 0;
+
+      response.results.forEach(page => {
+        const type = page.properties['類型']?.select?.name?.trim(); // Fix: Trim whitespace
+        const hours = page.properties['時數']?.number || 0;
+
+        if (type === '加班') {
+          overtime += hours;
+        } else if (type === '補休') {
+          compensatory += hours;
+        }
+      });
+
+      return {
+        overtime,
+        compensatory,
+        balance: overtime - compensatory
+      };
+
+    } catch (error) {
+      console.error('Get Balance By ID Error:', error);
+      throw error;
+    }
+  },
   
   /**
    * 查詢指定日期的請假名單 (包含跨日)

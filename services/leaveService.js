@@ -163,7 +163,8 @@ const leaveService = {
       let balanceMsg = '';
       if (['加班', '補休'].includes(data['類型'])) {
         try {
-          const balanceData = await notionRepo.getUserTimeBalance(data['姓名']);
+          // 改用 Person ID 計算結餘
+          const balanceData = await notionRepo.getUserTimeBalanceByPersonId(personId);
           balanceMsg = `\n💰 目前結餘: ${balanceData.balance} 小時 (總加班 ${balanceData.overtime} - 總補休 ${balanceData.compensatory})`;
         } catch (e) {
           console.error('Balance calculation failed', e);
