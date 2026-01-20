@@ -101,6 +101,11 @@ const leaveService = {
       
       let complianceMsg = '';
 
+      // 檢查是否為整天卻填寫時間 (若 >= 8 小時且非加班，建議用整天格式)
+      if (data['類型'] !== '加班' && !isDateOnly(data['開始時間']) && hours >= 7.5) {
+           complianceMsg += `\n⚠️ 提醒：請假整天請勿填寫時間，避免時數計算錯誤 (直接填寫日期即可)`;
+      }
+
       // 3. [NEW] 檢查補休時段 (Rule 10)
       // 若類型為補休，且非整日模式(非 dateOnly)，必須符合 08:30~12:00 或 13:30~17:30
       if (data['類型'] === '補休' && !isDateOnly(data['開始時間'])) {
@@ -150,7 +155,7 @@ const leaveService = {
           const check = leaveService.validateAdvanceNotice(startForNotion, endForNotion, hours);
           if (!check.isValid) {
               isCompliant = false;
-              complianceMsg = `\n⚠️ 注意：未符合預告期規定\n(需提前 ${check.requiredDays} 天申請)`;
+              complianceMsg += `\n⚠️ 注意：未符合預告期規定\n(需提前 ${check.requiredDays} 天申請)`;
           }
       }
 
@@ -219,13 +224,18 @@ const leaveService = {
 
       const now = dayjs();
       // 使用實際開始時間計算預告期
-      const actualStart = dayjs(startIso); 
+      // const actualStart = dayjs(startIso); 
       
-      // 計算距離開始時間還有多久 (小時)
-      const hoursUntilStart = actualStart.diff(now, 'hour');
+      // 改為檢查 "日曆天" 差異
+      // 今天是 20號, 申請 21號 => 21 - 20 = 1天 (符合提前1天)
+      // 今天是 20號, 申請 20號 => 20 - 20 = 0天 (不符合提前1天)
+      const submitDate = now.startOf('day');
+      const startDate = dayjs(startIso).startOf('day');
+      
+      const daysInAdvance = startDate.diff(submitDate, 'day');
       
       return {
-          isValid: hoursUntilStart >= requiredHours,
+          isValid: daysInAdvance >= requiredDays,
           requiredDays: requiredDays,
           durationDays: durationDays // for debug/info if needed
       };

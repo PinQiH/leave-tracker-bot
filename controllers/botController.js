@@ -33,6 +33,9 @@ const botController = {
         // 回覆使用者正在處理
         await ctx.reply('🔍 正在驗證資料並匯入中，請稍候...');
 
+        // 先取出 excelData，避免非同步執行時 userStates 已被刪除
+        const excelData = userStates[userId].excelData;
+
         // 背景執行匯入，避免阻塞導致 Timeout
         (async () => {
             try {
@@ -42,7 +45,7 @@ const botController = {
                     await ctx.reply(`⚠️ 注意：在 Notion 中找不到 Email 為 ${email} 的使用者，將無法標記人員欄位。`);
                 }
 
-                const excelData = userStates[userId].excelData;
+                
                 let successCount = 0;
                 let duplicateCount = 0;
                 let errorCount = 0;
@@ -181,7 +184,7 @@ const botController = {
 開始時間: 2026-01-20 18:00
 結束時間: 2026-01-20 20:00
 \`\`\`
-*類型支援：補休、加班、特休、病假...*
+*類型支援：補休、加班、特休、病假、事假...*
 
 **⚠️ 注意事項**：
 
@@ -198,6 +201,14 @@ const botController = {
 - 上午：08:30 ~ 12:00
 - 下午：13:30 ~ 17:30
 *(時段不符系統將顯示警示)*
+
+**提醒**：請假整天請勿填寫時間，避免時數計算錯誤 (直接填寫日期即可)
+\`\`\`
+姓名: 王小明
+類型: 補休
+開始時間: 2026-01-20
+結束時間: 2026-01-20
+\`\`\`
       `;
     await ctx.replyWithMarkdown(helpText);
   },
