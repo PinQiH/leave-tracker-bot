@@ -1,5 +1,11 @@
 const leaveService = require('../services/leaveService');
+const excelService = require('../services/excelService');
+const notionRepo = require('../repository/notionRepo');
 const config = require('../config/config');
+const axios = require('axios');
+
+// 簡單的狀態管理: { [userId]: { step: 'WAIT_FOR_INFO', excelData: [...] } }
+const userStates = {};
 
 const botController = {
   /**
@@ -10,10 +16,82 @@ const botController = {
     const text = ctx.message.text;
     if (!text) return;
 
+    const userId = ctx.from.id;
+
+    // 0. 檢查是否在等待輸入資料狀態
+    if (userStates[userId] && userStates[userId].step === 'WAIT_FOR_INFO') {
+        const input = text.trim();
+        // 格式: 姓名, Email (或是用中文逗號)
+        const parts = input.split(/[,，]/);
+        if (parts.length < 2) {
+            return ctx.reply('⚠️ 格式錯誤，請輸入：姓名, Email\n例如：王小明, ming@example.com');
+        }
+
+        const name = parts[0].trim();
+        const email = parts[1].trim();
+
+        // 回覆使用者正在處理
+        await ctx.reply('🔍 正在驗證資料並匯入中，請稍候...');
+
+        // 背景執行匯入，避免阻塞導致 Timeout
+        (async () => {
+            try {
+                // 尋找 Notion User
+                const personId = await notionRepo.findUserByEmail(email);
+                if (!personId) {
+                    await ctx.reply(`⚠️ 注意：在 Notion 中找不到 Email 為 ${email} 的使用者，將無法標記人員欄位。`);
+                }
+
+                const excelData = userStates[userId].excelData;
+                let successCount = 0;
+                let duplicateCount = 0;
+                let errorCount = 0;
+
+                for (const record of excelData) {
+                    const exists = await notionRepo.checkDuplicate(personId, record.type, record.startTime, record.endTime);
+                    
+                    if (exists) {
+                        duplicateCount++;
+                        continue;
+                    }
+
+                    try {
+                        await notionRepo.createLeaveRecord({
+                            name: name,
+                            type: record.type,
+                            start: record.startTime,
+                            end: record.endTime,
+                            hours: record.hours,
+                            remark: record.remark,
+                            personId: personId
+                        });
+                        successCount++;
+                    } catch (err) {
+                        console.error('Import Record Error:', err);
+                        errorCount++;
+                    }
+                }
+
+                let resultMsg = `✅ 匯入完成！\n成功: ${successCount} 筆\n重複忽略: ${duplicateCount} 筆`;
+                if (errorCount > 0) resultMsg += `\n失敗: ${errorCount} 筆`;
+                
+                await ctx.reply(resultMsg);
+
+            } catch (error) {
+                console.error('Import Process Error:', error);
+                await ctx.reply(`❌ 匯入過程發生錯誤: ${error.message}`);
+            }
+        })();
+
+        // 清除狀態
+        delete userStates[userId];
+        return;
+    }
+
     // 嘗試解析是否為請假/加班訊息
     const result = await leaveService.processLeaveMessage(text);
 
-    if (result) {
+     if (result) {
       // 1. 回覆使用者 (無論成功或失敗)
       await ctx.reply(result.message);
 
@@ -33,6 +111,59 @@ const botController = {
         }
       }
     }
+  },
+
+  /**
+   * 處理文件訊息 (Excel)
+   */
+  async handleDocument(ctx) {
+      const doc = ctx.message.document;
+      const mimeType = doc.mime_type;
+      const fileName = doc.file_name.toLowerCase();
+
+      // 檢查是否為 Excel
+      if (
+          mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+          mimeType === 'application/vnd.ms-excel' ||
+          fileName.endsWith('.xlsx') || 
+          fileName.endsWith('.xls')
+      ) {
+          try {
+              const fileId = doc.file_id;
+              const fileLink = await ctx.telegram.getFileLink(fileId);
+              
+              // 下載檔案
+              const response = await axios({
+                  url: fileLink.href,
+                  method: 'GET',
+                  responseType: 'arraybuffer'
+              });
+
+              // 解析 Excel
+              const result = excelService.parseLeaveExcel(response.data);
+              
+              if (!result.success) {
+                  return ctx.reply(`❌ 解析失敗: ${result.error}`);
+              }
+
+              const data = result.data;
+              if (data.length === 0) {
+                  return ctx.reply('⚠️ 檔案中沒有有效資料。');
+              }
+
+              // 暫存狀態
+              userStates[ctx.from.id] = {
+                  step: 'WAIT_FOR_INFO',
+                  excelData: data
+              };
+
+              await ctx.reply(`📄 收到 ${data.length} 筆資料。\n請回覆您的 **姓名, Notion Email** 以進行登記。\n(例如: 王小明, ming@example.com)`);
+
+          } catch (error) {
+              console.error('Handle Document Error:', error);
+              await ctx.reply(`❌ 處理檔案失敗: ${error.message}`);
+          }
+      }
   },
 
   /**

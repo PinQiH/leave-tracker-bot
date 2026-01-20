@@ -37,7 +37,9 @@ bot.command('getid', botController.handleGetIdCommand);
 bot.command('testcron', botController.handleTestCronCommand);
 
 // 訊息監聽 (放在最後，避免攔截指令)
+// 訊息監聽 (放在最後，避免攔截指令)
 bot.on('text', botController.handleMessage);
+bot.on('document', botController.handleDocument);
 
 // 啟動 Bot
 console.log('🚀 Telegram Bot 啟動中...');

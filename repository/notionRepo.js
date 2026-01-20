@@ -11,13 +11,11 @@ const databaseId = config.notion.databaseId;
 const notionRepo = {
   /**
    * 新增請假/加班記錄
-   * @param {Object} data - { name, type, start, end, hours, remark }
+   * @param {Object} data - { name, type, start, end, hours, remark, personId }
    */
-  async createLeaveRecord({ name, type, start, end, hours, remark }) {
+  async createLeaveRecord({ name, type, start, end, hours, remark, personId }) {
     try {
-      const response = await notion.pages.create({
-        parent: { database_id: databaseId },
-        properties: {
+      const properties = {
           '姓名': {
             title: [
               {
@@ -54,7 +52,21 @@ const notionRepo = {
               },
             ],
           },
-        },
+      };
+
+      if (personId) {
+          properties['人員'] = {
+              people: [
+                  {
+                      id: personId
+                  }
+              ]
+          };
+      }
+
+      const response = await notion.pages.create({
+        parent: { database_id: databaseId },
+        properties: properties,
       });
       return response;
     } catch (error) {
@@ -238,6 +250,77 @@ const notionRepo = {
           throw error;
       }
   },
+
+  /**
+   * 透過 Email 尋找 Notion 使用者
+   * @param {string} email 
+   * @returns {Promise<string|null>} user id
+   */
+  async findUserByEmail(email) {
+      try {
+          const response = await notion.users.list({});
+          // 這裡回傳的是所有使用者 (paginated, 但通常人不多)
+          const user = response.results.find(u => u.person && u.person.email === email);
+          return user ? user.id : null;
+      } catch (error) {
+          console.error('Find User By Email Error:', error);
+          // 若無權限或找不到，回傳 null
+          return null;
+      }
+  },
+
+  /**
+   * 檢查是否有重複的請假紀錄
+   * @param {string} personId - Notion User ID
+   * @param {string} type 
+   * @param {string} start 
+   * @param {string} end 
+   * @returns {Promise<boolean>}
+   */
+  async checkDuplicate(personId, type, start, end) {
+      if (!personId) return false; // 若無 Person ID，無法精確判斷重複 (或視為不重複)
+      
+      try {
+          const response = await notion.request({
+                path: `databases/${databaseId}/query`,
+                method: 'post',
+                body: {
+                    filter: {
+                        and: [
+                            {
+                                property: '人員',
+                                people: {
+                                    contains: personId
+                                }
+                            },
+                            {
+                                property: '類型',
+                                select: {
+                                    equals: type
+                                }
+                            },
+                            {
+                                property: '開始時間',
+                                date: {
+                                    equals: start // 需完全一致
+                                }
+                            },
+                             {
+                                property: '結束時間',
+                                date: {
+                                    equals: end // 需完全一致
+                                }
+                            }
+                        ]
+                    }
+                }
+          });
+          return response.results.length > 0;
+      } catch (error) {
+          console.error('Check Duplicate Error:', error);
+          return false; // 保守處理：若查詢失敗，視為無重複 (或視需求改成 throw)
+      }
+  }
 };
 
 module.exports = notionRepo;
