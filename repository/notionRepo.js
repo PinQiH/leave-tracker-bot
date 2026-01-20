@@ -27,7 +27,7 @@ const notionRepo = {
           },
           '類型': {
             select: {
-              name: type,
+              name: type?.trim(),
             },
           },
           '開始時間': {

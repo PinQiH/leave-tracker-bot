@@ -28,6 +28,7 @@ const leaveService = {
           // 連接剩餘部分以防值中含有冒號 (例如時間)
           const value = parts.slice(1).join(':').trim();
           data[key] = value;
+          if (key === '類型') data[key] = value.trim(); // Ensure Type is trimmed
         } else {
             // 嘗試處理全形冒號
             const partsFull = line.split('：');

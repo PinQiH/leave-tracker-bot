@@ -23,7 +23,7 @@ const excelService = {
         // 欄位對應: 加班或補修, 說明, 起始時間, 結束時間, 時數(小時)
         // 注意 Excel 時間格式可能是數字 (Excel Serial Date) 或字串
         
-        const type = row['加班或補修'];
+        const type = row['加班或補修']?.trim();
         const remark = row['說明'];
         const startRaw = row['起始時間'];
         const endRaw = row['結束時間'];
@@ -59,27 +59,44 @@ const excelService = {
                 return new Date(Math.round((val - 25569)*86400*1000)).toISOString();
             }
 
-            // String format (e.g. "2026/01/20 18:00", "2026-01-20 18:00")
+            // String format (e.g. "2026/01/20 18:00", "2026-01-20 18:00", "2025/4/1 06:11:00 PM")
             if (typeof val === 'string') {
-                // 使用 dayjs 強制解析為台北時間
                 const dayjs = require('dayjs');
                 const utc = require('dayjs/plugin/utc');
                 const timezone = require('dayjs/plugin/timezone');
+                const customParseFormat = require('dayjs/plugin/customParseFormat'); // Add this
+                
                 dayjs.extend(utc);
                 dayjs.extend(timezone);
+                dayjs.extend(customParseFormat); // Extend it
+
+                // 定義支援的格式清單
+                const formats = [
+                    "YYYY/MM/DD HH:mm:ss", 
+                    "YYYY/MM/DD HH:mm",
+                    "YYYY/M/D HH:mm:ss",
+                    "YYYY/M/D HH:mm",
+                    "YYYY-MM-DD HH:mm:ss",
+                    "YYYY-MM-DD HH:mm",
+                    "YYYY/M/D hh:mm:ss A", // For "2025/4/1 06:11:00 PM"
+                    "YYYY/MM/DD hh:mm:ss A",
+                    "M/D/YYYY hh:mm:ss A",
+                    "MM/DD/YYYY hh:mm:ss A"
+                ];
 
                 // 嘗試解析並指定為台北時間
-                // 如果格式是 "YYYY/MM/DD HH:mm:ss"
-                const dt = dayjs.tz(val, "Asia/Taipei");
+                // strict: false (寬鬆模式)
+                const dt = dayjs.tz(val, formats, "Asia/Taipei");
                 if (dt.isValid()) {
                     return dt.toISOString(); // 轉換為 UTC ISO String
                 }
             }
             
-            // Fallback
+            // Fallback (若真的無法解析，使用系統預設，但在 Cloud 環境通常是 UTC)
             return new Date(val).toISOString();
         };
 
+        // 簡單處理: 直接存 raw data 讓人工確認或後續處理
         parsedData.push({
             type: type,
             remark: remark,
