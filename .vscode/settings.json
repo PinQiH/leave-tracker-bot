@@ -1,0 +1,72 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "files.autoSave": "onFocusChange",
+  "editor.tabSize": 2,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "todo-tree.general.tags": ["-", "!!", "@", "??", ">", "TODO", "FIXME"],
+  "todo-tree.highlights.customHighlight": {
+    "-": {
+      "background": "#222",
+      "foreground": "#6D8CB4",
+      "iconColour": "#6D8CB4",
+      "icon": "check",
+      "type": "text-and-comment",
+      "hideFromTree": true
+    },
+    "@": {
+      "background": "#222",
+      "foreground": "#6D8CB4",
+      "iconColour": "#6D8CB4",
+      "icon": "check",
+      "type": "text-and-comment",
+      "hideFromTree": true
+    },
+    "!!": {
+      "background": "#222",
+      "foreground": "#d9444a",
+      "iconColour": "#d9444a",
+      "icon": "check",
+      "type": "text-and-comment"
+    },
+    "??": {
+      "background": "#222",
+      "foreground": "#f5c018",
+      "iconColour": "#f5c018",
+      "icon": "check",
+      "type": "text-and-comment"
+    },
+    ">": {
+      "background": "#222",
+      "foreground": "#fff",
+      "iconColour": "#fff",
+      "icon": "check",
+      "type": "text-and-comment",
+      "hideFromTree": true
+    },
+    "TODO": {
+      "background": "#f5c018",
+      "foreground": "#000",
+      "iconColour": "#f5c018",
+      "icon": "check",
+      "type": "text-and-comment"
+    },
+    "FIXME": {
+      "background": "#d9444a",
+      "foreground": "#000",
+      "iconColour": "#d9444a",
+      "type": "text-and-comment"
+    }
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
