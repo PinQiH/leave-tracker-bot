@@ -161,40 +161,44 @@ const leaveService = {
         personWarning = `\n⚠️ 注意：您的資料未同步 Notion ID，無法自動標記人員。`
       }
 
-      // 4. 計算新結餘 (針對加班/補休)
+      // 4. 計算/取得最新累計時數 (結餘)
       let newBalance = null
       let balanceMsg = ""
 
-      if (["加班", "補休"].includes(data["類型"])) {
-        try {
-          const currentBalanceData =
-            await notionRepo.getUserTimeBalanceByPersonId(personId)
+      try {
+        const currentBalanceData =
+          await notionRepo.getUserTimeBalanceByPersonId(personId)
 
-          let baseBalance
+        let baseBalance
+        const isCompensatoryRelated = ["加班", "補休"].includes(data["類型"])
 
-          if (typeof manualBalance === "number") {
-            baseBalance = manualBalance
-          } else if (currentBalanceData.requireManualBalance) {
-            // 需要手動輸入，且目前還沒提供
-            return {
-              success: false,
-              status: "WAIT_FOR_BALANCE",
-              message:
-                "⚠️ 系統找不到您之前的累計時數。\n為了確保計算準確，請輸入您**申請前**的累計時數：",
-            }
-          } else {
-            baseBalance = currentBalanceData.balance
+        if (typeof manualBalance === "number") {
+          baseBalance = manualBalance
+        } else if (currentBalanceData.requireManualBalance) {
+          // 如果是加班補休，必填
+          // 如果是其他假別且有歷史紀錄，為了維持資料庫 balance 連續性，也引導輸入
+          return {
+            success: false,
+            status: "WAIT_FOR_BALANCE",
+            message: `⚠️ 系統找不到您之前的累計時數。\n為了確保計算準確，請輸入您**目前**的累計時數：`,
           }
-
-          if (data["類型"] === "加班") {
-            newBalance = baseBalance + hours
-          } else {
-            newBalance = baseBalance - hours
-          }
-          balanceMsg = `\n💰 異動後結餘: ${newBalance} 小時 (原結餘 ${baseBalance}${data["類型"] === "加班" ? " + " : " - "}${hours})`
-        } catch (e) {
-          console.error("Pre-calculate Balance failed", e)
+        } else {
+          baseBalance = currentBalanceData.balance
         }
+
+        if (data["類型"] === "加班") {
+          newBalance = baseBalance + hours
+          balanceMsg = `\n💰 異動後累計時數: ${newBalance} 小時 (原累計 ${baseBalance} + ${hours})`
+        } else if (data["類型"] === "補休") {
+          newBalance = baseBalance - hours
+          balanceMsg = `\n💰 異動後累計時數: ${newBalance} 小時 (原累計 ${baseBalance} - ${hours})`
+        } else {
+          // 其他假別，沿用之前的結餘
+          newBalance = baseBalance
+          // 一般假別通常不主動顯示累計時數訊息，除非有變動
+        }
+      } catch (e) {
+        console.error("Calculate Balance failed", e)
       }
 
       // 5. 呼叫 Repo 寫入 Notion
