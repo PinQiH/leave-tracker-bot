@@ -45,19 +45,15 @@ bot.use(async (ctx, next) => {
     (ctx.chat.type === "group" || ctx.chat.type === "supergroup")
   ) {
     try {
+      const botInfo = await ctx.telegram.getMe()
       await ctx.reply(
         "👋 請改用 <b>私訊</b> 與 Bot 互動。\n\n" +
-          '點擊 <a href="https://t.me/' +
-          (await ctx.telegram.getMe()).username +
-          '">這裡</a> ' +
-          "或直接搜尋我的帳號，開始私訊。",
+          `點擊 <a href="https://t.me/${botInfo.username}">這裡</a> 或直接搜尋我的帳號，開始私訊。`,
         { parse_mode: "HTML" }
       )
     } catch (e) {
-      // 簡化版本，如果上面失敗
-      ctx
-        .reply("👋 請改用私訊與 Bot 互動。感謝！")
-        .catch((err) => console.error("Failed to reply in group", err))
+      // 如果回覆失敗 (如群組已升級或權限不足)，直接記錄並返回，避免多次嘗試
+      console.warn(`[Group Check] Failed to reply in group ${ctx.chat.id}:`, e.message)
     }
     return
   }
