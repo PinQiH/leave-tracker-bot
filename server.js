@@ -6,6 +6,7 @@ process.env.TZ = "Asia/Taipei"
 
 const config = require("./config/config")
 const botController = require("./controllers/botController")
+const { userStates } = botController
 const schedulerService = require("./services/schedulerService")
 const authService = require("./services/authService")
 
@@ -103,6 +104,10 @@ bot.use(async (ctx, next) => {
         if (ctx.session.originalRequest) {
           const originalText = ctx.session.originalRequest
           delete ctx.session.originalRequest // 清除暫存
+
+          // 清除 userStates 中的等待狀態 (避免干擾新請求的處理)
+          delete userStates[tgId]
+
           ctx.message.text = originalText
           await ctx.reply(`🔄 正在繼續執行您原本的請求：${originalText}`)
         } else {

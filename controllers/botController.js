@@ -574,6 +574,7 @@ const botController = {
       await ctx.reply(`❌ 查詢失敗: ${error.message}`)
     }
   },
+  userStates,
 }
 
 module.exports = botController
