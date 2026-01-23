@@ -63,6 +63,9 @@ const botController = {
           await ctx.reply(result.message)
           if (result.success && config.telegram.groupId) {
             try {
+              console.log(
+                "Attempting to send group notification (handleMessage)..."
+              )
               const {
                 name,
                 type,
@@ -77,6 +80,7 @@ const botController = {
                 config.telegram.groupId,
                 notifyText
               )
+              console.log("✅ Group notification sent successfully.")
             } catch (error) {
               console.error("Failed to send group notification:", error)
             }
@@ -125,6 +129,9 @@ const botController = {
           await ctx.reply(result.message)
           if (result.success && config.telegram.groupId) {
             try {
+              console.log(
+                "Attempting to send group notification (manual balance)..."
+              )
               const {
                 name,
                 type,
@@ -139,6 +146,7 @@ const botController = {
                 config.telegram.groupId,
                 notifyText
               )
+              console.log("✅ Group notification sent successfully.")
             } catch (error) {
               console.error("Failed to send group notification:", error)
             }
@@ -273,6 +281,7 @@ const botController = {
           }
 
           await ctx.telegram.sendMessage(config.telegram.groupId, notifyText)
+          console.log("✅ Group notification sent successfully.")
         } catch (error) {
           console.error("Failed to send group notification:", error)
         }

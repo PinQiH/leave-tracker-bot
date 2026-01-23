@@ -392,7 +392,8 @@ const notionRepo = {
 
       return response.results.map((page) => {
         const start = page.properties["開始時間"]?.date?.start
-        const end = page.properties["結束時間"]?.date?.end
+        // 修正: 結束時間是獨立的 Date 欄位，其值存在 start 屬性中 (因為它不是一個 Range)
+        const end = page.properties["結束時間"]?.date?.start
 
         // 格式化時間：若是全天 (YYYY-MM-DD)，保持原樣；若是含時間，取 HH:mm ~ HH:mm
         // 但為了通知清楚，統一顯示原始字串或簡單處理
