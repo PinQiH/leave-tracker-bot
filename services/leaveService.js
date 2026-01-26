@@ -106,7 +106,13 @@ const leaveService = {
       }
 
       // [NEW] 針對補休整天的特殊處理 (大於等於 7.5 小時強制算 7.5)
-      if (data["類型"] === "補休" && hours >= 7.5) {
+      // 只有在 "非整日模式" (即有填寫時間) 下才需要強制轉 7.5 (避免 9 小時誤算)
+      // 如果是 "整日模式" (isDateOnly), hours 已經是 totalDays * 7.5, 不應再被強制改寫
+      if (
+        data["類型"] === "補休" &&
+        !isDateOnly(data["開始時間"]) &&
+        hours >= 7.5
+      ) {
         hours = 7.5
       }
 

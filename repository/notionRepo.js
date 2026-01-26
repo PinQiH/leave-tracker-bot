@@ -379,6 +379,12 @@ const notionRepo = {
                   on_or_after: dateStr,
                 },
               },
+              {
+                property: "人員",
+                people: {
+                  is_not_empty: true,
+                },
+              },
             ],
           },
           sorts: [
