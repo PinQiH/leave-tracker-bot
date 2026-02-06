@@ -59,7 +59,7 @@ const schedulerService = {
     cron.schedule("0 8 * * *", async () => {
       try {
         console.log("⏰ 執行排程：每日請假通知")
-        const dayjs = require("dayjs")
+        const { dayjs } = require("../utils/dateUtils")
         const notionRepo = require("../repository/notionRepo")
 
         const today = dayjs().format("YYYY-MM-DD")
@@ -71,10 +71,14 @@ const schedulerService = {
           )
           let msg = `📅 **${today} 出勤異動名單**：\n`
           leaves.forEach((leave, index) => {
-            const timeInfo =
-              leave.start.length > 10
-                ? `(${leave.start.slice(11, 16)}~${leave.end.slice(11, 16)})`
-                : "(全天)"
+            let timeInfo = "(全天)"
+            // 判斷是否為含時間的格式 (ISO string 通常包含 "T")
+            if (leave.start.includes("T")) {
+              const s = dayjs(leave.start).tz().format("HH:mm")
+              const e = dayjs(leave.end).tz().format("HH:mm")
+              timeInfo = `(${s}~${e})`
+            }
+
             msg += `${index + 1}. ${leave.name} ${leave.type} ${timeInfo}\n`
           })
 
