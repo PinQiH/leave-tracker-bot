@@ -63,7 +63,7 @@ const leaveService = {
       let startForNotion = data["開始時間"]
       let endForNotion = data["結束時間"]
 
-      const isDateOnly = (str) => /^(\d{4}[-/]\d{2}[-/]\d{2})$/.test(str.trim())
+      const isDateOnly = (str) => /^(\d{4}[-/]\d{1,2}[-/]\d{1,2})$/.test(str.trim())
 
       // 如果使用者有手動輸入 "時數", 則優先使用
       if (data["時數"]) {
@@ -78,8 +78,8 @@ const leaveService = {
         if (isDateOnly(data["開始時間"]) && isDateOnly(data["結束時間"])) {
           // 1. 純日期模式 (跨日/單日) -> 一天 7.5 小時
           // 計算天數差 (例如 26~27 = 2天)
-          const startDate = dayjs(data["開始時間"])
-          const endDate = dayjs(data["結束時間"])
+          const startDate = dayjs.tz(data["開始時間"], "Asia/Taipei")
+          const endDate = dayjs.tz(data["結束時間"], "Asia/Taipei")
           const diffDays = endDate.diff(startDate, "day")
 
           if (diffDays < 0) {
@@ -111,7 +111,8 @@ const leaveService = {
       if (
         data["類型"] === "補休" &&
         !isDateOnly(data["開始時間"]) &&
-        hours >= 7.5
+        hours >= 7.5 &&
+        dayjs.tz(startForNotion, "Asia/Taipei").isSame(dayjs.tz(endForNotion, "Asia/Taipei"), "day")
       ) {
         hours = 7.5
       }

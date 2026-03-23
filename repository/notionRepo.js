@@ -185,7 +185,7 @@ const notionRepo = {
           filter: filter,
           sorts: [
             {
-              property: "開始時間",
+              property: "Created Time",
               direction: "descending",
             },
           ],
@@ -293,7 +293,7 @@ const notionRepo = {
           filter: filter,
           sorts: [
             {
-              property: "開始時間",
+              property: "Created Time",
               direction: "descending",
             },
           ],
