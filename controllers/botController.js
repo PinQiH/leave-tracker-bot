@@ -4,6 +4,7 @@ const notionRepo = require("../repository/notionRepo")
 const userMappingManager = require("../utils/userMappingManager")
 const config = require("../config/config")
 const axios = require("axios")
+const dayjs = require("dayjs")
 
 // 簡單的狀態管理: { [userId]: { step: 'WAIT_FOR_INFO', excelData: [...] } }
 const userStates = {}
@@ -519,6 +520,22 @@ const botController = {
         `📅 **${today} 出勤異動名單**：\n1. 測試人員 測試假 (09:00~18:00)`,
         { parse_mode: "Markdown" }
       )
+
+      // [NEW] 預覽假日通知邏輯
+      const holidayManager = require("../utils/holidayManager")
+      const holiday = holidayManager.checkTomorrowHoliday()
+      if (holiday) {
+        const holidayName = holiday.name || "國定假日"
+        await ctx.telegram.sendMessage(
+          config.telegram.groupId,
+          `🔔 [測試] 偵測到明天放假：\n明天【${holidayName}】放假一天呦 🥳✨`
+        )
+      } else {
+        await ctx.telegram.sendMessage(
+          config.telegram.groupId,
+          `🔔 [測試] 偵測到明日（${dayjs().add(1, "day").format("YYYY-MM-DD")}）非預定放假的平日國定假日。`
+        )
+      }
 
       await ctx.reply("✅ 測試通知已發送！")
     } catch (error) {

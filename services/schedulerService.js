@@ -94,7 +94,34 @@ const schedulerService = {
       }
     })
 
-    // 5. Keep Alive (Prevent Render Free Tier from spinning down)
+    // 5. 國定假日放假通知 (每日 17:00 檢查明天)
+    cron.schedule("0 17 * * *", async () => {
+      try {
+        console.log("⏰ 執行排程：國定假日放假通知檢查")
+        const holidayManager = require("../utils/holidayManager")
+        const holiday = holidayManager.checkTomorrowHoliday()
+
+        if (holiday) {
+          const holidayName = holiday.name || "國定假日"
+          const joyfulMessages = [
+            `明天【${holidayName}】放假一天呦 🥳✨ 大家準備好要怎麼放鬆了嗎？`,
+            `耶！明天是【${holidayName}】休息喔 🎉 好好充電吧！`,
+            `小叮嚀：明天是【${holidayName}】，不用上班唷 🌈 祝大家有個愉快的假期！`,
+            `太棒了！明天【${holidayName}】大家可以睡到自然醒囉 💤🛋️`,
+          ]
+          const randomMsg = joyfulMessages[Math.floor(Math.random() * joyfulMessages.length)]
+
+          await bot.telegram.sendMessage(groupId, randomMsg)
+          console.log(`✅ 已發送假日通知: ${holidayName}`)
+        } else {
+          console.log("明天不是特定國定假日，不發送通知。")
+        }
+      } catch (error) {
+        console.error("排程執行失敗 (國定假日通知):", error)
+      }
+    })
+
+    // 6. Keep Alive (Prevent Render Free Tier from spinning down)
     // Run every 10 minutes
     cron.schedule("*/10 * * * *", async () => {
       const renderUrl = process.env.RENDER_URL
@@ -113,7 +140,7 @@ const schedulerService = {
     })
 
     console.log(
-      "✅ 排程已註冊：\n   - 每月 15 號 09:00\n   - 每月 20 號 09:00\n   - 每週一 09:00\n   - 每日 08:00 (當日請假通知)\n   - 每 10 分鐘 (Keep Alive)"
+      "✅ 排程已註冊：\n   - 每月 15 號 09:00\n   - 每月 20 號 09:00\n   - 每週一 09:00\n   - 每日 08:00 (當日請假通知)\n   - 每日 17:00 (放假預告通知)\n   - 每 10 分鐘 (Keep Alive)"
     )
   },
 }
