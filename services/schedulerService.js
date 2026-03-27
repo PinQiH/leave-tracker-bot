@@ -1,5 +1,31 @@
 const cron = require("node-cron")
 const config = require("../config/config")
+const typhoonManager = require("../utils/typhoonManager")
+
+async function runTyphoonStatusCheck(bot, groupId) {
+  try {
+    console.log("⏰ 執行排程：停班停課狀態檢查")
+    const result = await typhoonManager.checkForUpdates()
+
+    if (result.initialized) {
+      console.log("🌀 已建立停班停課監控基準狀態。")
+      return
+    }
+
+    if (!result.shouldNotify) {
+      console.log("🌀 停班停課狀態無變更。")
+      return
+    }
+
+    await bot.telegram.sendMessage(
+      groupId,
+      typhoonManager.formatChangeNotification(result)
+    )
+    console.log(`✅ 已發送停班停課通知，共 ${result.changes.length} 筆異動。`)
+  } catch (error) {
+    console.error("排程執行失敗 (停班停課通知):", error)
+  }
+}
 
 const schedulerService = {
   /**
@@ -121,7 +147,17 @@ const schedulerService = {
       }
     })
 
-    // 6. Keep Alive (Prevent Render Free Tier from spinning down)
+    // 6. 每 30 分鐘檢查停班停課狀態
+    cron.schedule("*/30 * * * *", async () => {
+      await runTyphoonStatusCheck(bot, groupId)
+    })
+
+    // 啟動時先同步一次狀態，沒有既有基準時只建立檔案不通知
+    runTyphoonStatusCheck(bot, groupId).catch((error) => {
+      console.error("啟動時同步停班停課狀態失敗:", error)
+    })
+
+    // 7. Keep Alive (Prevent Render Free Tier from spinning down)
     // Run every 10 minutes
     cron.schedule("*/10 * * * *", async () => {
       const renderUrl = process.env.RENDER_URL
@@ -140,7 +176,7 @@ const schedulerService = {
     })
 
     console.log(
-      "✅ 排程已註冊：\n   - 每月 15 號 09:00\n   - 每月 20 號 09:00\n   - 每週一 09:00\n   - 每日 08:00 (當日請假通知)\n   - 每日 17:00 (放假預告通知)\n   - 每 10 分鐘 (Keep Alive)"
+      "✅ 排程已註冊：\n   - 每月 15 號 09:00\n   - 每月 20 號 09:00\n   - 每週一 09:00\n   - 每日 08:00 (當日請假通知)\n   - 每日 17:00 (放假預告通知)\n   - 每 30 分鐘 (停班停課監控)\n   - 每 10 分鐘 (Keep Alive)"
     )
   },
 }

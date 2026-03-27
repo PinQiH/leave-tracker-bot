@@ -3,6 +3,7 @@ const excelService = require("../services/excelService")
 const notionRepo = require("../repository/notionRepo")
 const userMappingManager = require("../utils/userMappingManager")
 const config = require("../config/config")
+const typhoonManager = require("../utils/typhoonManager")
 const axios = require("axios")
 const dayjs = require("dayjs")
 
@@ -468,6 +469,7 @@ const botController = {
 - /help - 顯示說明
 - /format - 快速複製紀錄格式
 - /balance - 查詢剩餘補休
+- /testtyphoon - 查詢目前停班停課狀態
       `
     await ctx.replyWithMarkdown(helpText)
   },
@@ -537,10 +539,40 @@ const botController = {
         )
       }
 
+      // [NEW] 預覽停班停課狀態通知
+      try {
+        const snapshot = await typhoonManager.getCurrentSnapshot()
+        await ctx.telegram.sendMessage(
+          config.telegram.groupId,
+          `[測試]\n${typhoonManager.formatCurrentStatusMessage(snapshot)}`
+        )
+      } catch (typhoonError) {
+        await ctx.telegram.sendMessage(
+          config.telegram.groupId,
+          `⚠️ [測試] 停班停課狀態查詢失敗：${typhoonError.message}`
+        )
+      }
+
       await ctx.reply("✅ 測試通知已發送！")
     } catch (error) {
       console.error("Test Cron Error:", error)
       await ctx.reply(`❌ 發送失敗: ${error.message}`)
+    }
+  },
+
+  /**
+   * 處理 /testtyphoon 指令
+   * 回傳目前監控縣市的停班停課狀態
+   */
+  async handleTestTyphoonCommand(ctx) {
+    await ctx.reply("🌀 正在查詢 DGPA 停班停課狀態，請稍候...")
+
+    try {
+      const snapshot = await typhoonManager.getCurrentSnapshot()
+      await ctx.reply(typhoonManager.formatCurrentStatusMessage(snapshot))
+    } catch (error) {
+      console.error("Test Typhoon Command Error:", error)
+      await ctx.reply(`❌ 查詢失敗: ${error.message}`)
     }
   },
 
